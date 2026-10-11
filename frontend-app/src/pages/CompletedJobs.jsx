@@ -1,25 +1,42 @@
-
 import { useEffect, useState } from "react";
 import axios from "axios";
+
+const API_URL =
+  "https://ppf-studio-backend-2026.onrender.com";
 
 export default function CompletedJobs() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Fetch completed jobs from live backend
   const fetchCompleted = async () => {
     try {
       setLoading(true);
       setError("");
 
       const res = await axios.get(
-        "http://localhost:5000/api/bookings/completed"
+        `${API_URL}/api/bookings/completed`,
+        { timeout: 30000 }
       );
 
-      setBookings(res.data.bookings || []);
+      const data = res.data;
+
+      const completedBookings = Array.isArray(data)
+        ? data
+        : data.bookings || [];
+
+      setBookings(completedBookings);
     } catch (err) {
-      console.error("Failed to fetch completed jobs:", err);
-      setError("Unable to load completed jobs. Please try again.");
+      console.error(
+        "Failed to fetch completed jobs:",
+        err.response?.data || err.message
+      );
+
+      setError(
+        err.response?.data?.message ||
+          "Unable to load completed jobs. Please check the backend API and try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -28,6 +45,23 @@ export default function CompletedJobs() {
   useEffect(() => {
     fetchCompleted();
   }, []);
+
+  const cellStyle = {
+    padding: "16px",
+    overflowWrap: "anywhere",
+    textAlign: "center",
+    fontSize: "14px",
+  };
+
+  const buttonStyle = {
+    background: "#D4AF37",
+    color: "#111",
+    border: "none",
+    padding: "10px 20px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  };
 
   return (
     <main
@@ -47,6 +81,10 @@ export default function CompletedJobs() {
           fontWeight: 800,
           margin: "20px 0 40px",
           lineHeight: 1.3,
+          background:
+            "linear-gradient(90deg,#FFD700,#00e676)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
         }}
       >
         ✅ Completed Jobs
@@ -63,7 +101,7 @@ export default function CompletedJobs() {
         <div
           style={{
             background: "#111",
-            padding: "25px 40px",
+            padding: "25px 30px",
             borderRadius: 20,
             width: "100%",
             maxWidth: 300,
@@ -89,7 +127,7 @@ export default function CompletedJobs() {
         </div>
       </section>
 
-      {/* Jobs table */}
+      {/* Completed jobs table */}
       <section
         style={{
           background: "#111",
@@ -101,13 +139,27 @@ export default function CompletedJobs() {
         }}
       >
         {loading ? (
-          <p style={{ textAlign: "center", color: "#FFD700", padding: 30 }}>
+          <p
+            style={{
+              textAlign: "center",
+              color: "#FFD700",
+              padding: 30,
+            }}
+          >
             Loading completed jobs...
           </p>
         ) : error ? (
-          <div style={{ textAlign: "center", padding: 30 }}>
+          <div
+            role="alert"
+            style={{ textAlign: "center", padding: 30 }}
+          >
             <p style={{ color: "#ff7777" }}>{error}</p>
-            <button onClick={fetchCompleted} style={buttonStyle}>
+
+            <button
+              type="button"
+              onClick={fetchCompleted}
+              style={buttonStyle}
+            >
               Retry
             </button>
           </div>
@@ -117,6 +169,7 @@ export default function CompletedJobs() {
               textAlign: "center",
               color: "#aaa",
               padding: 40,
+              fontSize: "clamp(18px, 3vw, 24px)",
             }}
           >
             No Completed Jobs Found
@@ -131,22 +184,27 @@ export default function CompletedJobs() {
           >
             <thead>
               <tr>
-                {["Customer", "Vehicle", "Service", "Completed Date"].map(
-                  (heading) => (
-                    <th
-                      key={heading}
-                      style={{
-                        padding: 16,
-                        color: "#FFD700",
-                        fontSize: 15,
-                        textAlign: "center",
-                        borderBottom: "1px solid rgba(255,215,0,.2)",
-                      }}
-                    >
-                      {heading}
-                    </th>
-                  )
-                )}
+                {[
+                  "Customer",
+                  "Vehicle",
+                  "Service",
+                  "Completed Date",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    style={{
+                      padding: 16,
+                      color: "#FFD700",
+                      fontSize: 15,
+                      textAlign: "center",
+                      whiteSpace: "nowrap",
+                      borderBottom:
+                        "1px solid rgba(255,215,0,.2)",
+                    }}
+                  >
+                    {heading}
+                  </th>
+                ))}
               </tr>
             </thead>
 
@@ -155,8 +213,8 @@ export default function CompletedJobs() {
                 <tr
                   key={booking._id}
                   style={{
-                    textAlign: "center",
-                    borderBottom: "1px solid rgba(255,255,255,.05)",
+                    borderBottom:
+                      "1px solid rgba(255,255,255,.05)",
                   }}
                 >
                   <td style={cellStyle}>
@@ -164,7 +222,10 @@ export default function CompletedJobs() {
                   </td>
 
                   <td style={cellStyle}>
-                    {[booking.brand, booking.vehicleModel]
+                    {[
+                      booking.brand,
+                      booking.vehicleModel,
+                    ]
                       .filter(Boolean)
                       .join(" ") || "N/A"}
                   </td>
@@ -173,11 +234,20 @@ export default function CompletedJobs() {
                     {booking.serviceType || "N/A"}
                   </td>
 
-                  <td style={{ ...cellStyle, color: "#bbb" }}>
-                    {booking.completedAt
-                      ? new Date(booking.completedAt).toLocaleDateString(
-                          "en-IN"
-                        )
+                  <td
+                    style={{
+                      ...cellStyle,
+                      color: "#bbb",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {booking.completedAt &&
+                    !Number.isNaN(
+                      new Date(booking.completedAt).getTime()
+                    )
+                      ? new Date(
+                          booking.completedAt
+                        ).toLocaleDateString("en-IN")
                       : "N/A"}
                   </td>
                 </tr>
@@ -189,19 +259,4 @@ export default function CompletedJobs() {
     </main>
   );
 }
-
-const cellStyle = {
-  padding: 16,
-  overflowWrap: "anywhere",
-};
-
-const buttonStyle = {
-  background: "#D4AF37",
-  color: "#111",
-  border: "none",
-  padding: "10px 20px",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontWeight: "bold",
-};
 

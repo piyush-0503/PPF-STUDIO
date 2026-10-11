@@ -1,7 +1,9 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+
+const API_URL =
+  "https://ppf-studio-backend-2026.onrender.com";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -17,33 +19,44 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
-
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     try {
+      setLoading(true);
       setError("");
 
       const res = await axios.get(
-        "http://localhost:5000/api/dashboard"
+        `${API_URL}/api/dashboard`,
+        { timeout: 30000 }
       );
+
+      const data = res.data?.stats || res.data;
 
       setStats((previous) => ({
         ...previous,
-        ...res.data,
+        ...data,
       }));
     } catch (err) {
-      console.error("Failed to fetch dashboard:", err);
-      setError("Unable to load dashboard statistics.");
+      console.error(
+        "Failed to fetch dashboard:",
+        err.response?.data || err.message
+      );
+
+      setError(
+        err.response?.data?.message ||
+          "Unable to load dashboard statistics. Please try again."
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
 
   const logout = () => {
     localStorage.removeItem("token");
-    navigate("/admin/login");
+    navigate("/admin/login", { replace: true });
   };
 
   return (
@@ -54,9 +67,10 @@ export default function Dashboard() {
         color: "#fff",
         padding: "clamp(15px, 3vw, 30px)",
         boxSizing: "border-box",
+        fontFamily: "Poppins, sans-serif",
       }}
     >
-      {/* Header */}
+      {/* Dashboard Header */}
       <header
         style={{
           textAlign: "center",
@@ -71,7 +85,8 @@ export default function Dashboard() {
             margin: "0 0 20px",
             lineHeight: 1.2,
             overflowWrap: "anywhere",
-            background: "linear-gradient(90deg,#FFD700,#FF7A00)",
+            background:
+              "linear-gradient(90deg,#FFD700,#FF7A00)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
           }}
@@ -89,40 +104,90 @@ export default function Dashboard() {
         </p>
       </header>
 
-      {/* Status */}
+      {/* Loading */}
       {loading && (
-        <p style={{ textAlign: "center", color: "#FFD700" }}>
+        <p
+          style={{
+            textAlign: "center",
+            color: "#FFD700",
+            padding: 15,
+          }}
+        >
           Loading dashboard...
         </p>
       )}
 
+      {/* Error */}
       {error && (
-        <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <div
+          role="alert"
+          style={{
+            textAlign: "center",
+            marginBottom: 25,
+            padding: 15,
+            borderRadius: 10,
+            background: "#301416",
+          }}
+        >
           <p style={{ color: "#ff7777" }}>{error}</p>
-          <button onClick={fetchDashboard} style={buttonStyle}>
-            Retry
+
+          <button
+            type="button"
+            onClick={fetchDashboard}
+            disabled={loading}
+            style={buttonStyle}
+          >
+            {loading ? "Loading..." : "Retry"}
           </button>
         </div>
       )}
 
-      {/* Statistics - no pricing or revenue */}
+      {/* Statistics */}
       <section
+        aria-label="Dashboard statistics"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,220px),1fr))",
+          gridTemplateColumns:
+            "repeat(auto-fit,minmax(min(100%,220px),1fr))",
           gap: 20,
         }}
       >
-        <Card title="Total Bookings" value={stats.totalBookings} />
-        <Card title="Pending Jobs" value={stats.pendingJobs} />
-        <Card title="Completed Jobs" value={stats.completedJobs} />
-        <Card title="Gallery Images" value={stats.totalGallery} />
-        <Card title="Reviews" value={stats.totalReviews} />
+        <Card
+          title="Total Bookings"
+          value={stats.totalBookings}
+        />
+
+        <Card
+          title="Pending Jobs"
+          value={stats.pendingJobs}
+        />
+
+        <Card
+          title="Completed Jobs"
+          value={stats.completedJobs}
+        />
+
+        <Card
+          title="Gallery Images"
+          value={stats.totalGallery}
+        />
+
+        <Card
+          title="Reviews"
+          value={stats.totalReviews}
+        />
       </section>
 
       {/* Admin Controls */}
       <section style={{ marginTop: 50 }}>
-        <h2 style={{ color: "#ff3b3b" }}>Admin Controls</h2>
+        <h2
+          style={{
+            color: "#ff3b3b",
+            overflowWrap: "anywhere",
+          }}
+        >
+          Admin Controls
+        </h2>
 
         <div
           style={{
@@ -148,8 +213,8 @@ export default function Dashboard() {
             Manage Products
           </Link>
 
-          <Link to="/reviews" style={buttonStyle}>
-            View Reviews
+          <Link to="/admin/reviews" style={buttonStyle}>
+            Manage Reviews
           </Link>
 
           <Link to="/" style={buttonStyle}>
@@ -163,6 +228,7 @@ export default function Dashboard() {
               ...buttonStyle,
               border: "none",
               cursor: "pointer",
+              fontFamily: "inherit",
             }}
           >
             Logout
@@ -182,9 +248,17 @@ function Card({ title, value }) {
         borderRadius: 15,
         textAlign: "center",
         border: "1px solid rgba(255,255,255,.07)",
+        overflowWrap: "anywhere",
       }}
     >
-      <h3 style={{ color: "#ddd", marginTop: 0 }}>{title}</h3>
+      <h3
+        style={{
+          color: "#ddd",
+          marginTop: 0,
+        }}
+      >
+        {title}
+      </h3>
 
       <h1
         style={{
@@ -209,3 +283,4 @@ const buttonStyle = {
   fontWeight: "bold",
   fontSize: 14,
 };
+

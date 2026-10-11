@@ -1,6 +1,11 @@
-
 import { useState } from "react";
 import axios from "axios";
+
+const API_BASE_URL =
+  (
+    import.meta.env.VITE_API_URL ||
+    "https://ppf-studio-backend-2026.onrender.com"
+  ).replace(/\/+$/, "");
 
 const servicesList = [
   "PPF",
@@ -13,12 +18,6 @@ const servicesList = [
   "Bike PPF",
   "Bike Ceramic",
 ];
-
-// Local development: http://localhost:5000
-// Deployment: Vercel Environment Variables mein VITE_API_URL set karo.
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || "http://localhost:5000"
-).replace(/\/+$/, "");
 
 const inputStyle = {
   width: "100%",
@@ -33,27 +32,27 @@ const inputStyle = {
   boxSizing: "border-box",
 };
 
-
+const initialForm = {
+  name: "",
+  phone: "",
+  email: "",
+  state: "",
+  city: "",
+  vehicleType: "Car",
+  brand: "",
+  model: "",
+  service: "",
+  slotDate: "",
+};
 
 export default function BookService() {
   const [bookingResult, setBookingResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    state: "",
-    city: "",
-    vehicleType: "Car",
-    brand: "",
-    model: "",
-    service: "",
-    slotDate: "",
-  });
+  const [form, setForm] = useState(initialForm);
 
   const today = new Date();
+
   const minDate = [
     today.getFullYear(),
     String(today.getMonth() + 1).padStart(2, "0"),
@@ -71,8 +70,6 @@ export default function BookService() {
     setErrorMessage("");
   };
 
-
-
   const whatsappMessage = `Hello PPF Studio,
 
 Name: ${form.name}
@@ -84,8 +81,6 @@ Brand: ${form.brand}
 Model: ${form.model}
 Service: ${form.service}
 Preferred Date: ${form.slotDate}
-
-
 
 Please confirm availability and final pricing.`;
 
@@ -102,17 +97,21 @@ Please confirm availability and final pricing.`;
     setBookingResult(null);
 
     if (!servicesList.includes(form.service)) {
-  setErrorMessage("Please select a valid service.");
-  return;
-}
+      setErrorMessage("Please select a valid service.");
+      return;
+    }
 
-    if (form.phone.replace(/\D/g, "").length !== 10) {
-      setErrorMessage("Please enter a valid 10-digit phone number.");
+    if (!/^\d{10}$/.test(form.phone.trim())) {
+      setErrorMessage(
+        "Please enter a valid 10-digit phone number."
+      );
       return;
     }
 
     if (form.slotDate < minDate) {
-      setErrorMessage("Please select today or a future date.");
+      setErrorMessage(
+        "Please select today or a future date."
+      );
       return;
     }
 
@@ -123,7 +122,7 @@ Please confirm availability and final pricing.`;
         customerName: form.name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
-        state: form.state,
+        state: form.state.trim(),
         city: form.city.trim(),
         vehicleType: form.vehicleType,
         brand: form.brand.trim(),
@@ -132,7 +131,6 @@ Please confirm availability and final pricing.`;
         bookingDate: form.slotDate,
         slotDate: form.slotDate,
         slotTime: "Not Selected",
-       
       };
 
       const response = await axios.post(
@@ -142,7 +140,7 @@ Please confirm availability and final pricing.`;
           headers: {
             "Content-Type": "application/json",
           },
-          timeout: 20000,
+          timeout: 30000,
         }
       );
 
@@ -151,23 +149,7 @@ Please confirm availability and final pricing.`;
           response.data?.booking || response.data
         );
 
-        alert(
-          "Booking request submitted successfully! Please wait for confirmation."
-        );
-
-        // Form clear karne se pehle submitted details result mein preserve hain.
-        setForm({
-          name: "",
-          phone: "",
-          email: "",
-          state: "",
-          city: "",
-          vehicleType: "Car",
-          brand: "",
-          model: "",
-          service: "",
-          slotDate: "",
-        });
+        setForm({ ...initialForm });
       }
     } catch (error) {
       console.error(
@@ -186,11 +168,11 @@ Please confirm availability and final pricing.`;
         );
       } else if (error.code === "ECONNABORTED") {
         setErrorMessage(
-          "Server response timed out. Please check whether the backend is running."
+          "Server response timed out. Please try again."
         );
       } else {
         setErrorMessage(
-          `Backend se connection nahi ho raha. API URL check karo: ${API_BASE_URL}`
+          `Backend connection failed. Check API URL: ${API_BASE_URL}`
         );
       }
     } finally {
@@ -259,15 +241,25 @@ Please confirm availability and final pricing.`;
           margin-bottom: 7px;
         }
 
-        .booking-error {
+        .booking-error,
+        .booking-success {
           margin-bottom: 18px;
           padding: 13px;
-          border: 1px solid #b83c4b;
           border-radius: 10px;
-          background: #32151b;
-          color: #ffb7c0;
           line-height: 1.6;
           overflow-wrap: anywhere;
+        }
+
+        .booking-error {
+          border: 1px solid #b83c4b;
+          background: #32151b;
+          color: #ffb7c0;
+        }
+
+        .booking-success {
+          border: 1px solid #218c54;
+          background: #10271a;
+          color: #a8f0c4;
         }
 
         .booking-submit {
@@ -313,16 +305,6 @@ Please confirm availability and final pricing.`;
           text-decoration: none;
         }
 
-        .booking-success {
-          margin-bottom: 18px;
-          padding: 14px;
-          border: 1px solid #218c54;
-          border-radius: 10px;
-          background: #10271a;
-          color: #a8f0c4;
-          overflow-wrap: anywhere;
-        }
-
         @media(max-width:800px) {
           .booking-layout {
             grid-template-columns: minmax(0,1fr);
@@ -334,11 +316,15 @@ Please confirm availability and final pricing.`;
         }
       `}</style>
 
-      <h1 className="booking-title">Book Your Appointment</h1>
+      <h1 className="booking-title">
+        Book Your Appointment
+      </h1>
 
       <div className="booking-layout">
-        {/* BOOKING FORM */}
-        <form className="booking-panel" onSubmit={handleSubmit}>
+        <form
+          className="booking-panel"
+          onSubmit={handleSubmit}
+        >
           <h2>Customer & Vehicle Details</h2>
 
           {errorMessage && (
@@ -349,14 +335,12 @@ Please confirm availability and final pricing.`;
 
           {bookingResult && (
             <div className="booking-success" role="status">
-              <strong>Booking request submitted.</strong>
-              <p style={{ marginTop: 6 }}>
+              <strong>Booking request submitted successfully!</strong>
+              <p>
                 Please wait for the studio to confirm your appointment.
               </p>
               {bookingResult._id && (
-                <p style={{ marginTop: 6 }}>
-                  Booking ID: {bookingResult._id}
-                </p>
+                <p>Booking ID: {bookingResult._id}</p>
               )}
             </div>
           )}
@@ -414,7 +398,7 @@ Please confirm availability and final pricing.`;
           <input
             id="booking-state"
             name="state"
-            placeholder="Enter your city"
+            placeholder="Enter your state"
             value={form.state}
             onChange={handleChange}
             style={inputStyle}
@@ -516,7 +500,6 @@ Please confirm availability and final pricing.`;
           </button>
         </form>
 
-        {/* BOOKING SUMMARY */}
         <aside className="booking-panel">
           <h2>Booking Summary</h2>
 
@@ -550,14 +533,7 @@ Please confirm availability and final pricing.`;
             <strong>Date:</strong> {form.slotDate || "Not selected"}
           </p>
 
-          <hr
-            style={{
-              margin: "25px 0",
-              borderColor: "#333",
-            }}
-          />
-
-          
+          <hr style={{ margin: "25px 0", borderColor: "#333" }} />
 
           <a
             href={whatsappLink}
@@ -572,3 +548,4 @@ Please confirm availability and final pricing.`;
     </main>
   );
 }
+
