@@ -12,32 +12,46 @@ const galleryRoutes = require("./routes/galleryRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const productRoutes = require("./routes/productRoutes");
-
 const uploadRoutes = require("./routes/uploadRoutes");
 
 const app = express();
 
 /* =========================
-   MIDDLEWARE
+   CORS CONFIGURATION
 ========================= */
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5500",
+  "https://ppf-studio-frontend.onrender.com"
+];
 
 app.use(
   cors({
-    origin: true,
+    origin: function (origin, callback) {
+      // Allow requests without an Origin header.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.error("Blocked CORS origin:", origin);
+      return callback(new Error("Origin not allowed by CORS"));
+    },
     credentials: true,
-  })
-);
-
-app.use(express.json());
-
-app.use(
-  express.urlencoded({
-    extended: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 
 /* =========================
-   STATIC FILES
+   BODY PARSING
+========================= */
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* =========================
+   STATIC UPLOADS
 ========================= */
 
 app.use(
@@ -46,13 +60,14 @@ app.use(
 );
 
 /* =========================
-   TEST ROUTE
+   HEALTH CHECK
 ========================= */
 
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
     message: "PPF Studio API Running 🚗",
+    environment: process.env.NODE_ENV || "development"
   });
 });
 
@@ -66,19 +81,40 @@ app.use("/api/gallery", galleryRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/products", productRoutes);
-
 app.use("/api/upload", uploadRoutes);
+
+/* =========================
+   NOT FOUND HANDLER
+========================= */
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "API route not found",
+    path: req.originalUrl
+  });
+});
 
 /* =========================
    ERROR HANDLER
 ========================= */
 
 app.use((err, req, res, next) => {
-  console.error("SERVER ERROR:", err);
+  console.error("SERVER ERROR:", err.message);
 
-  res.status(500).json({
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const statusCode = err.message === "Origin not allowed by CORS"
+    ? 403
+    : 500;
+
+  res.status(statusCode).json({
     success: false,
-    message: err.message || "Internal Server Error",
+    message: statusCode === 403
+      ? "Frontend origin is not allowed"
+      : "Internal Server Error"
   });
 });
 
@@ -94,19 +130,17 @@ const startServer = async () => {
 
     console.log("✅ MongoDB Connected");
 
-    app.listen(PORT, () => {
-      console.log(
-        `🚀 Server running on port ${PORT}`
-      );
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 PPF Studio server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error(
-      "❌ Server startup failed:",
-      error
-    );
+    console.error("❌ Server startup failed:", error.message);
+    process.exit(1);
   }
 };
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
 
 module.exports = app;
